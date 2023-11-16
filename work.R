@@ -1,4 +1,4 @@
-source("../function/function.R")
+source("function/function.R")
 library(ggplot2)
 
 niter <- 30000 ## Number of iterations

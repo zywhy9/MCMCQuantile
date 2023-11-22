@@ -193,7 +193,10 @@ mle_analysis <- function(data, niter=NULL, npar=NULL, nchain=NULL, transf=NULL, 
   
   mean_mle <- sd_mle <- low_mle <- upp_mle <- matrix(0, niter, npar) ## Initialization
   
-  pb <- progress_bar$new(format = "[:bar] :current/:total (:percent)", total = niter-(npar-1)) ## Set progress bar
+  ## Set initial values
+  ninit <- ifelse(is.null(nburnin), npar, nburnin)
+  
+  pb <- progress_bar$new(format = "[:bar] :current/:total (:percent)", total = niter-(ninit-1)) ## Set progress bar
   starttime_mle <- Sys.time()  ## Set start time
   
   ## Transformation based on type of data
@@ -213,8 +216,6 @@ mle_analysis <- function(data, niter=NULL, npar=NULL, nchain=NULL, transf=NULL, 
     temp <- rbind(initial, data)  ## If initial values exist, use them
   }
   
-  ## Set initial values
-  ninit <- ifelse(is.null(nburnin), npar, nburnin)
   
   ## Start iteration
   for(iter in (ninit+1):niter){

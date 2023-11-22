@@ -117,7 +117,7 @@ ggplot(df, aes(x = id, group = Type)) +
   geom_line(aes(y = low, col = Type, linetype = Type), lwd=0.75) +
   geom_line(aes(y = upp, col = Type, linetype = Type), lwd=0.75) +
   labs(x = "Iterations", y = "H") +
-  ylim(750, 3000) + 
+  ylim(1200, 1800) + 
   scale_linetype_manual(values=c(1,1,1,2,3), labels = c("MLE", "MM", "Empirical Quantile", "True Interval", "NA Interval")) + 
   scale_color_manual(values=c("#F8766D","#00BA38","#619CFF","black","purple"), labels = c("MLE", "MM", "Empirical Quantile", "True Interval", "NA Interval"))
 

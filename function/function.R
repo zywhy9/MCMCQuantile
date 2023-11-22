@@ -23,16 +23,32 @@ mcmc_data <- function(data=NULL, niter=NULL, set=1, location="res", param.name=N
   }
   
   ## Find the number of iterations, number of chains and number of parameters
-  if(is.null(niter)){
-    c(niter, nchain, npar) %<-% dim(data)
+  if(length(dim(data))==3){
+    if(is.null(niter)){
+      c(niter, nchain, npar) %<-% dim(data)
+    }else{
+      c(nchain, npar) %<-% dim(data)[2:3]
+    }
   }else{
-    c(nchain, npar) %<-% dim(data)[2:3]
+    if(is.null(niter)){
+      c(niter, nchain) %<-% dim(data)
+      npar <- 1
+    }else{
+      nchain <- ncol(data)
+      npar <- 1
+    }
   }
   
+  
   mcmc.samples <- matrix(0, nrow = niter, ncol = (npar * nchain)) ## Initialization
-  for(i in 1:npar){
-    mcmc.samples[,(1:nchain)+((i-1)*nchain)] <- data[1:niter,,i]  ## Read Data
+  if(npar>1){
+    for(i in 1:npar){
+      mcmc.samples[,(1:nchain)+((i-1)*nchain)] <- data[1:niter,,i]  ## Read Data
+    }
+  }else{
+    mcmc.samples[,(1:nchain)] <- data[1:niter,]
   }
+  
   
   if(is.null(niter)){
     res <- list(data = mcmc.samples, niter = niter, nchain = nchain, npar = npar, param.name = param.name)
@@ -62,14 +78,12 @@ mm_analysis <- function(data, niter=NULL, npar=NULL, nchain=NULL, transf=NULL){
   
   ## Transformation based on type of data
   for(i in 1:npar){
-    if(is.null(transf[i])){
-      next
+    if(transf[i]=="log"){
+      data[,(1:nchain)+((i-1)*nchain)] <- log(data[,(1:nchain)+((i-1)*nchain)]) ## Log transformation
+    }else if(transf[i]=="logit"){
+      data[,(1:nchain)+((i-1)*nchain)] <- boot::logit(data[,(1:nchain)+((i-1)*nchain)])  ## Logit transformation
     }else{
-      if(transf[i]=="log"){
-        data[,(1:nchain)+((i-1)*nchain)] <- log(data[,(1:nchain)+((i-1)*nchain)])
-      }else if(transf[i]=="logit"){
-        data[,(1:nchain)+((i-1)*nchain)] <- boot::logit(data[,(1:nchain)+((i-1)*nchain)])
-      }
+      next ## No transformation
     }
   }
   
@@ -105,6 +119,11 @@ mm_analysis <- function(data, niter=NULL, npar=NULL, nchain=NULL, transf=NULL){
         sd_mm[i,j] <- sdvec[j] * mean_mm[i,j] * (1 - mean_mm[i,j])
         low_mm[i,j] <- boot::inv.logit(lowvec[j])
         upp_mm[i,j] <- boot::inv.logit(uppvec[j])
+      }else{
+        mean_mm[i,j] <- meanvec[j]
+        sd_mm[i,j] <- sdvec[j]
+        low_mm[i,j] <- lowvec[j]
+        upp_mm[i,j] <- uppvec[j]
       }
     }
     
@@ -179,14 +198,12 @@ mle_analysis <- function(data, niter=NULL, npar=NULL, nchain=NULL, transf=NULL, 
   
   ## Transformation based on type of data
   for(i in 1:npar){
-    if(is.null(transf[i])){
-      next ## No transformation
+    if(transf[i]=="log"){
+      data[,(1:nchain)+((i-1)*nchain)] <- log(data[,(1:nchain)+((i-1)*nchain)]) ## Log transformation
+    }else if(transf[i]=="logit"){
+      data[,(1:nchain)+((i-1)*nchain)] <- boot::logit(data[,(1:nchain)+((i-1)*nchain)])  ## Logit transformation
     }else{
-      if(transf[i]=="log"){
-        data[,(1:nchain)+((i-1)*nchain)] <- log(data[,(1:nchain)+((i-1)*nchain)]) ## Log transformation
-      }else if(transf[i]=="logit"){
-        data[,(1:nchain)+((i-1)*nchain)] <- boot::logit(data[,(1:nchain)+((i-1)*nchain)])  ## Logit transformation
-      }
+      next ## No transformation
     }
   }
   

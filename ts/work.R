@@ -7,8 +7,8 @@ library(Matrix)
 niter <- 10000 ## Number of iterations
 nchain <- 3
 mu <- 10 
-sd <- 5 
-phi <- 0.9
+sd <- 0.5 
+phi <- 0.9995
 initial <- c(0,10,20)
 
 ts_sampler <- function(niter, nchain, mu, sd, phi, initial=NULL, seed = 1234) { ## x_t = delta + phi * x_{t-1} + eps_t
@@ -57,7 +57,7 @@ c(mean_mle, sd_mle, low_mle, upp_mle, time_mle, mu_mle, psi_mle, beta, gamma, de
                                                                                                        transf=transf, 
                                                                                                        initial = initial,
                                                                                                        extra = T,
-                                                                                                       nburnin = 15)
+                                                                                                       nburnin = 700)
 
 ## Plot
 true.quantile <- quantile(data, c(0.025, 0.975)) ## True empirical quantile

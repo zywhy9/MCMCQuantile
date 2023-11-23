@@ -65,7 +65,7 @@ c(mean_mle, sd_mle, low_mle, upp_mle, time_mle, mu_mle, psi_mle, beta, gamma, de
                                                                                                        transf=transf, 
                                                                                                        initial = initial,
                                                                                                        extra = T,
-                                                                                                       nburnin = 20)
+                                                                                                       nburnin = nburnin)
 
 ## Plot
 true.quantile <- quantile(data, c(0.025, 0.975)) ## True empirical quantile
@@ -74,7 +74,7 @@ true.mean <- mean(data)
 true.sd <- sd(data)
 na.quantile <- c(true.mean - 1.96 * true.sd, true.mean + 1.96 * true.sd) ## True normal-approximated quantile
 
-n.burnin <- 1000
+n.burnin <- 1.3 * nburnin
 par <- 1
 df <- data.frame(id = rep((n.burnin+1):niter,5), 
                  low = c(low_mle[(n.burnin+1):niter,par], 

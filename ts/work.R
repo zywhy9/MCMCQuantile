@@ -8,8 +8,16 @@ niter <- 10000 ## Number of iterations
 nchain <- 3
 mu <- 10 
 sd <- 0.5 
-phi <- 0.9995
 initial <- c(0,10,20)
+
+phi <- 0.99
+nburnin <- 30
+
+phi <- 0.995
+nburnin <- 40
+
+phi <- 0.9995
+nburnin <- 700
 
 ts_sampler <- function(niter, nchain, mu, sd, phi, initial=NULL, seed = 1234) { ## x_t = delta + phi * x_{t-1} + eps_t
   set.seed(seed)
@@ -51,13 +59,13 @@ c(low_eq, upp_eq, time_eq) %<-% eq_analysis(data=data, niter=niter, npar=1, ncha
 
 ## MLE
 c(mean_mle, sd_mle, low_mle, upp_mle, time_mle, mu_mle, psi_mle, beta, gamma, delta) %<-% mle_analysis(data=data, 
-                                                                                                       niter=niter, 
+                                                                                                       niter=100, 
                                                                                                        npar=1, 
                                                                                                        nchain=nchain, 
                                                                                                        transf=transf, 
                                                                                                        initial = initial,
                                                                                                        extra = T,
-                                                                                                       nburnin = 700)
+                                                                                                       nburnin = 20)
 
 ## Plot
 true.quantile <- quantile(data, c(0.025, 0.975)) ## True empirical quantile
@@ -66,7 +74,7 @@ true.mean <- mean(data)
 true.sd <- sd(data)
 na.quantile <- c(true.mean - 1.96 * true.sd, true.mean + 1.96 * true.sd) ## True normal-approximated quantile
 
-n.burnin <- 20
+n.burnin <- 1000
 par <- 1
 df <- data.frame(id = rep((n.burnin+1):niter,5), 
                  low = c(low_mle[(n.burnin+1):niter,par], 
@@ -85,7 +93,7 @@ ggplot(df, aes(x = id, group = Type)) +
   geom_line(aes(y = low, col = Type, linetype = Type), lwd=0.75) +
   geom_line(aes(y = upp, col = Type, linetype = Type), lwd=0.75) +
   labs(x = "Iterations", y = "X") +
-  ylim(-50, 40) + 
+  ylim(-30, 60) + 
   scale_linetype_manual(values=c(1,1,1,2,3), labels = c("MLE", "MM", "Empirical Quantile", "True Interval", "NA Interval")) + 
   scale_color_manual(values=c("#F8766D","#00BA38","#619CFF","black","purple"), labels = c("MLE", "MM", "Empirical Quantile", "True Interval", "NA Interval"))
 

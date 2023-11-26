@@ -1,5 +1,6 @@
 library(zeallot)
 library(progress)
+library(coda)
 
 #' Build Dataset
 #'
@@ -95,15 +96,15 @@ mm_analysis <- function(data, niter=NULL, npar=NULL, nchain=NULL, transf=NULL){
       for(j in 1:npar){
         meanvec[j] <- mean(tempres[(1:nchain)+((j-1)*nchain)])
         sdvec[j] <- sd(tempres[(1:nchain)+((j-1)*nchain)])
-        lowvec[j] <- meanvec[j] - 1.96 * sdvec[j]
-        uppvec[j] <- meanvec[j] + 1.96 * sdvec[j]
+        lowvec[j] <- meanvec[j] - qnorm(0.975) * sdvec[j]
+        uppvec[j] <- meanvec[j] + qnorm(0.975) * sdvec[j]
       }
     }else{  ## If more than one iteration, then tempres is a matrix
       for(j in 1:npar){
         meanvec[j] <- mean(tempres[,(1:nchain)+((j-1)*nchain)])
         sdvec[j] <- sd(tempres[,(1:nchain)+((j-1)*nchain)])
-        lowvec[j] <- meanvec[j] - 1.96 * sdvec[j]
-        uppvec[j] <- meanvec[j] + 1.96 * sdvec[j]
+        lowvec[j] <- meanvec[j] - qnorm(0.975) * sdvec[j]
+        uppvec[j] <- meanvec[j] + qnorm(0.975) * sdvec[j]
       }
     }
     
@@ -270,18 +271,18 @@ mle_analysis <- function(data, niter=NULL, npar=NULL, nchain=NULL, transf=NULL, 
       if(transf[j]=="log"){
         mean_mle[iter,j] <- exp(mu_mle[j])
         sd_mle[iter,j] <- sigma_mle[j] * mean_mle[iter,j]
-        low_mle[iter,j] <- exp(mu_mle[j] - 1.96 * sigma_mle[j])
-        upp_mle[iter,j] <- exp(mu_mle[j] + 1.96 * sigma_mle[j])
+        low_mle[iter,j] <- exp(mu_mle[j] - qnorm(0.975) * sigma_mle[j])
+        upp_mle[iter,j] <- exp(mu_mle[j] + qnorm(0.975) * sigma_mle[j])
       }else if(transf[j]=="logit"){
         mean_mle[iter,j] <- boot::inv.logit(mu_mle[j])
         sd_mle[iter,j] <- sigma_mle[j] * mean_mle[iter,j] * (1 - mean_mle[iter,j])
-        low_mle[iter,j] <- boot::inv.logit(mu_mle[j] - 1.96 * sigma_mle[j])
-        upp_mle[iter,j] <- boot::inv.logit(mu_mle[j] + 1.96 * sigma_mle[j])
+        low_mle[iter,j] <- boot::inv.logit(mu_mle[j] - qnorm(0.975) * sigma_mle[j])
+        upp_mle[iter,j] <- boot::inv.logit(mu_mle[j] + qnorm(0.975) * sigma_mle[j])
       }else{
         mean_mle[iter,j] <- mu_mle[j]
         sd_mle[iter,j] <- sigma_mle[j]
-        low_mle[iter,j] <- mu_mle[j] - 1.96 * sigma_mle[j]
-        upp_mle[iter,j] <- mu_mle[j] + 1.96 * sigma_mle[j]
+        low_mle[iter,j] <- mu_mle[j] - qnorm(0.975) * sigma_mle[j]
+        upp_mle[iter,j] <- mu_mle[j] + qnorm(0.975) * sigma_mle[j]
       }
     }
     pb$tick(1) ## Progress bar
@@ -345,3 +346,65 @@ ar_simulation <- function(niter, npar, nchain, transf, init, beta, gamma, delta,
   
   return(samples)
 }
+
+
+#' Analysis with High Posterior Density Interval
+#'
+#' @param data A matrix of MCMC samples.
+#' @param niter Number of iterations.
+#' @param npar Number of parameters.
+#' @param nchain Number of MCMC chains.
+#' @param transf A vector indicates transformation if needed.
+#' @return A list including mean, SD, lower and upper bound of 95% CI, computing time.
+hpd_analysis <- function(data, niter=NULL, npar=NULL, nchain=NULL, transf=NULL){
+  
+  pb <- progress_bar$new(format = "[:bar] :current/:total (:percent)", total = niter - 1) ## Set up prograss bar
+  
+  low_hpd <- upp_hpd <- matrix(0, niter, npar) ## Initialization
+  
+  starttime_hpd <- Sys.time()  ## Set up start time
+  
+  ## Transformation based on type of data
+  for(i in 1:npar){
+    if(transf[i]=="log"){
+      data[,(1:nchain)+((i-1)*nchain)] <- log(data[,(1:nchain)+((i-1)*nchain)]) ## Log transformation
+    }else if(transf[i]=="logit"){
+      data[,(1:nchain)+((i-1)*nchain)] <- boot::logit(data[,(1:nchain)+((i-1)*nchain)])  ## Logit transformation
+    }else{
+      next ## No transformation
+    }
+  }
+  
+  for(i in 2:niter){
+    tempres <- data[1:i,]  ## Current data which only include first i iterations
+    lowvec <- uppvec <- rep(0, npar) ## Initialization
+    
+    for(j in 1:npar){
+      mcmc.obj <- as.mcmc(as.vector(tempres[,(1:nchain)+((j-1)*nchain)]))
+      hpd <- HPDinterval(mcmc.obj)
+      lowvec[j] <- hpd[1,1]
+      uppvec[j] <- hpd[1,2]
+    }
+    
+    ## Transform back to original scale
+    for(j in 1:npar){
+      if(transf[j]=="log"){
+        low_hpd[i,j] <- exp(lowvec[j])
+        upp_hpd[i,j] <- exp(uppvec[j])
+      }else if(transf[j]=="logit"){
+        low_hpd[i,j] <- boot::inv.logit(lowvec[j])
+        upp_hpd[i,j] <- boot::inv.logit(uppvec[j])
+      }else{
+        low_hpd[i,j] <- lowvec[j]
+        upp_hpd[i,j] <- uppvec[j]
+      }
+    }
+    
+    pb$tick(1) ## Progress bar
+  }
+  endtime_hpd <- Sys.time()  ## Record end time
+  time_hpd <- endtime_hpd - starttime_hpd ## Calculate computing time
+  
+  res <- list(low_hpd, upp_hpd, time_hpd)
+}
+

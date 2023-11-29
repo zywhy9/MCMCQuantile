@@ -1,8 +1,10 @@
 source("../function/function.R")
 library(ggplot2)
+library(MCMCpack)
+library(scales)
 
 niter <- 30000 ## Number of iterations
-transf <- "no" ## Indicators of transformation
+transf <- "log" ## Indicators of transformation
 c(mcmc.samples, nchain, npar, param.name) %<-% mcmc_data(niter=niter, param.name="N") ## Read Data
 
 ## moment estimate
@@ -10,6 +12,9 @@ c(mean_mm, sd_mm, low_mm, upp_mm, time_mm) %<-% mm_analysis(data=mcmc.samples, n
 
 ## Empirical Quantile
 c(low_eq, upp_eq, time_eq) %<-% eq_analysis(data=mcmc.samples, niter=niter, npar=npar, nchain=nchain)
+
+## Highest posterior density interval
+c(low_hpd, upp_hpd, time_hpd) %<-% hpd_analysis(data=mcmc.samples, niter=niter, npar=npar, nchain=nchain, transf=transf)
 
 ## MLE
 set.seed(1234)
@@ -45,23 +50,29 @@ na.quantile <- exp(c(true.mean - 1.96 * true.sd, true.mean + 1.96 * true.sd)) ##
 
 n.burnin <- 20 ## Number of burn-ins
 par <- 1 ## ID for the parameter of interest
-df <- data.frame(id = rep((n.burnin+1):niter,5), 
+
+n.est <- 4
+hex <- hue_pal()(n.est)
+
+df <- data.frame(id = rep((n.burnin+1):niter,(n.est+2)), 
                  low = c(low_mle[(n.burnin+1):niter,par], ## MLE
                          low_mm[(n.burnin+1):niter,par], ## MM
+                         low_hpd[(n.burnin+1):niter,par], ## HPD
                          low_eq[(n.burnin+1):niter,par], ## Empirical
                          rep(true.quantile[1], (niter - n.burnin)), ## True empirical
                          rep(na.quantile[1], (niter - n.burnin))),  ## True NA
                  upp = c(upp_mle[(n.burnin+1):niter,par], ## MLE
                          upp_mm[(n.burnin+1):niter,par], ## MM
+                         upp_hpd[(n.burnin+1):niter,par], ## HPD
                          upp_eq[(n.burnin+1):niter,par], ## Empirical
                          rep(true.quantile[2], (niter - n.burnin)), ## True empirical
                          rep(na.quantile[2], (niter - n.burnin))),  ## True NA
-                 Type = as.factor(rep(0:4, each = (niter - n.burnin))))
+                 Type = as.factor(rep(0:(n.est+1), each = (niter - n.burnin))))
 
 ggplot(df, aes(x = id, group = Type)) +
   geom_line(aes(y = low, col = Type, linetype = Type), lwd=0.75) +
   geom_line(aes(y = upp, col = Type, linetype = Type), lwd=0.75) +
   labs(x = "Iterations", y = "H") +
   ylim(55000, 70000) + 
-  scale_linetype_manual(values=c(1,1,1,2,3), labels = c("MLE", "MM", "Empirical Quantile", "True Interval", "NA Interval")) + 
-  scale_color_manual(values=c("#F8766D","#00BA38","#619CFF","black","purple"), labels = c("MLE", "MM", "Empirical Quantile", "True Interval", "NA Interval"))
+  scale_linetype_manual(values=c(1,1,1,1,2,3), labels = c("MLE", "MM", "HPD", "Empirical Quantile", "True Interval", "NA Interval")) + 
+  scale_color_manual(values=c(hex, "black", "purple"), labels = c("MLE", "MM", "HPD", "Empirical Quantile", "True Interval", "NA Interval"))

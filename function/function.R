@@ -197,7 +197,7 @@ mle_analysis <- function(data, niter=NULL, npar=NULL, nchain=NULL, transf=NULL, 
   ## Set initial values
   ninit <- ifelse(is.null(nburnin), npar, nburnin)
   
-  pb <- progress_bar$new(format = "[:bar] :current/:total (:percent)", total = niter-(ninit-1)) ## Set progress bar
+  pb <- progress_bar$new(format = "[:bar] :current/:total (:percent)", total = niter-ninit) ## Set progress bar
   starttime_mle <- Sys.time()  ## Set start time
   
   ## Transformation based on type of data

@@ -3,6 +3,7 @@ library(ggplot2)
 library(scales)
 library(Matrix)
 library(rstan)
+library(ggpubr)
 
 ## AR(1) Simulation
 
@@ -80,7 +81,8 @@ true.quantile <-  qnorm(c(0.025, 0.975), mean = mu, sd = true.sd)## True empiric
 # true.sd <- sd(data)
 # na.quantile <- c(true.mean - 1.96 * true.sd, true.mean + 1.96 * true.sd) ## True normal-approximated quantile
 
-n.burnin <- round(1.3 * nburnin)
+# n.burnin <- round(1.3 * nburnin)
+n.burnin <- 1000
 # end.iter <- 2500
 end.iter <- niter
 par <- 1
@@ -100,31 +102,34 @@ df <- data.frame(id = rep((n.burnin + 1):end.iter, (n.est + 1)),
                          rep(true.quantile[2], (end.iter - n.burnin))),
                  Type = as.factor(rep(0:n.est, each = (end.iter - n.burnin))))
 
-ggplot(df, aes(x = id, group = Type)) + # Full interval
+plot1 <- ggplot(df, aes(x = id, group = Type)) + # Full interval
   geom_line(aes(y = low, col = Type, linetype = Type), lwd=0.75) +
   geom_line(aes(y = upp, col = Type, linetype = Type), lwd=0.75) +
-  labs(x = "Iterations", y = "X") +
-  ylim(-10, 25) + 
+  labs(x = "Iterations", y = "Intervals") +
+  ylim(floor(min(df$low, df$upp)), ceiling(max(df$low, df$upp))) + 
   scale_linetype_manual(values = c(1, 1, 1, 1, 2), labels = c("MLE", "MM", "Empirical Quantile", "HPD", "True Interval")) + 
-  scale_color_manual(values = c(hex, "black"), labels = c("MLE", "MM", "Empirical Quantile", "HPD", "True Interval"))
+  scale_color_manual(values = c(hex, "black"), labels = c("MLE", "MM", "Empirical Quantile", "HPD", "True Interval")) +
+  ggtitle("95% intervals when mu=0, sigma=0.5, phi=0.9995 with 1000 burn-in")
 
-ggplot(df, aes(x = id, group = Type)) +  # Only upper bound
+plot2 <- ggplot(df, aes(x = id, group = Type)) +  # Only upper bound
   geom_line(aes(y = upp, col = Type, linetype = Type), lwd=0.75) +
   labs(x = "Iterations", y = "Upper Bound") +
   ylim(floor(min(df$upp)), ceiling(max(df$upp))) + 
   scale_linetype_manual(values = c(1, 1, 1, 1, 2), labels = c("MLE", "MM", "Empirical Quantile", "HPD", "True Interval")) + 
-  scale_color_manual(values = c(hex, "black"), labels = c("MLE", "MM", "Empirical Quantile", "HPD", "True Interval"))
+  scale_color_manual(values = c(hex, "black"), labels = c("MLE", "MM", "Empirical Quantile", "HPD", "True Interval")) +
+  ggtitle("Upper bound of 95% intervals when mu=0, sigma=0.5, phi=0.9995 with 1000 burn-in")
 
-ggplot(df, aes(x = id, group = Type)) +  # Only lower bound
+plot3 <- ggplot(df, aes(x = id, group = Type)) +  # Only lower bound
   geom_line(aes(y = low, col = Type, linetype = Type), lwd=0.75) +
   labs(x = "Iterations", y = "Lower Bound") +
   ylim(floor(min(df$low)), ceiling(max(df$low))) + 
   scale_linetype_manual(values = c(1, 1, 1, 1, 2), labels = c("MLE", "MM", "Empirical Quantile", "HPD", "True Interval")) + 
-  scale_color_manual(values = c(hex, "black"), labels = c("MLE", "MM", "Empirical Quantile", "HPD", "True Interval"))
+  scale_color_manual(values = c(hex, "black"), labels = c("MLE", "MM", "Empirical Quantile", "HPD", "True Interval")) +
+  ggtitle("Lower bound of 95% intervals when mu=0, sigma=0.5, phi=0.9995 with 1000 burn-in")
 
 ## Check absolute difference with true CI
 
-n.burnin <- round(1.3 * nburnin)
+n.burnin <- 1000
 end.iter <- niter
 n.est <- 4
 hex <- hue_pal()(n.est)
@@ -140,19 +145,25 @@ df <- data.frame(id = rep((n.burnin + 1):end.iter, n.est),
                          upp_hpd[(n.burnin + 1):end.iter, par]-true.quantile[2]),
                  Type = as.factor(rep(1:n.est, each = (end.iter - n.burnin))))
 
-ggplot(df, aes(x = id, group = Type)) +  # Plot for lower bound
+plot4 <- ggplot(df, aes(x = id, group = Type)) +  # Plot for lower bound
   geom_line(aes(y = abs(low), col = Type, linetype = Type), lwd=0.75) +
   labs(x = "Iterations", y = "Absolute difference from true lower bound") +
   ylim(floor(min(abs(df$low))), ceiling(max(abs(df$low)))) + 
   scale_linetype_manual(values = c(1, 1, 1, 1), labels = c("MLE", "MM", "Empirical Quantile", "HPD")) + 
-  scale_color_manual(values = hex, labels = c("MLE", "MM", "Empirical Quantile", "HPD"))
+  scale_color_manual(values = hex, labels = c("MLE", "MM", "Empirical Quantile", "HPD")) +
+  ggtitle("Absolute difference from true lower bound when mu=0, sigma=0.5, phi=0.9995 with 1000 burn-in")
 
-ggplot(df, aes(x = id, group = Type)) +  # Plot for upper bound
+plot5 <- ggplot(df, aes(x = id, group = Type)) +  # Plot for upper bound
   geom_line(aes(y = abs(upp), col = Type, linetype = Type), lwd=0.75) +
   labs(x = "Iterations", y = "Absolute difference from true upper bound") +
   ylim(floor(min(abs(df$upp))), ceiling(max(abs(df$upp)))) + 
   scale_linetype_manual(values = c(1, 1, 1, 1), labels = c("MLE", "MM", "Empirical Quantile", "HPD")) + 
-  scale_color_manual(values = hex, labels = c("MLE", "MM", "Empirical Quantile", "HPD"))
+  scale_color_manual(values = hex, labels = c("MLE", "MM", "Empirical Quantile", "HPD")) +
+  ggtitle("Absolute difference from true upper bound when mu=0, sigma=0.5, phi=0.9995 with 1000 burn-in")
+
+plot.list <- ggarrange(plot1, plot2, plot3, plot4, plot5, nrow = 1, ncol = 1)
+ggexport(plot.list, filename = "plot9995.pdf", width = 18, height = 14)
+
 
 ## ESS
 

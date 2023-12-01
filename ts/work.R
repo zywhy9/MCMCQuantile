@@ -13,6 +13,12 @@ mu <- 0
 sd <- 0.5 
 initial <- c(-10,0,10)
 
+phi <- 0.6
+nburnin <- NULL
+
+phi <- 0.9
+nburnin <- NULL
+
 phi <- 0.99
 nburnin <- 40
 
@@ -77,14 +83,10 @@ c(mean_mle, sd_mle, low_mle, upp_mle, time_mle, mu_mle, psi_mle, beta, gamma, de
 true.sd <- sqrt(sd^2 / (1 - phi^2))
 true.quantile <-  qnorm(c(0.025, 0.975), mean = mu, sd = true.sd)## True empirical quantile
 
-# true.mean <- mean(data)
-# true.sd <- sd(data)
-# na.quantile <- c(true.mean - 1.96 * true.sd, true.mean + 1.96 * true.sd) ## True normal-approximated quantile
-
 # n.burnin <- round(1.3 * nburnin)
-n.burnin <- 1000
+n.burnin <- 10
 # end.iter <- 2500
-end.iter <- niter
+end.iter <- 10000
 par <- 1
 n.est <- 4
 hex <- hue_pal()(n.est)
@@ -109,7 +111,7 @@ plot1 <- ggplot(df, aes(x = id, group = Type)) + # Full interval
   ylim(floor(min(df$low, df$upp)), ceiling(max(df$low, df$upp))) + 
   scale_linetype_manual(values = c(1, 1, 1, 1, 2), labels = c("MLE", "MM", "Empirical Quantile", "HPD", "True Interval")) + 
   scale_color_manual(values = c(hex, "black"), labels = c("MLE", "MM", "Empirical Quantile", "HPD", "True Interval")) +
-  ggtitle("95% intervals when mu=0, sigma=0.5, phi=0.9995 with 1000 burn-in")
+  ggtitle(paste0("95% intervals when mu=",mu,", sigma=",sd,", phi=",phi," with ",n.burnin," burn-in"))
 
 plot2 <- ggplot(df, aes(x = id, group = Type)) +  # Only upper bound
   geom_line(aes(y = upp, col = Type, linetype = Type), lwd=0.75) +
@@ -117,7 +119,7 @@ plot2 <- ggplot(df, aes(x = id, group = Type)) +  # Only upper bound
   ylim(floor(min(df$upp)), ceiling(max(df$upp))) + 
   scale_linetype_manual(values = c(1, 1, 1, 1, 2), labels = c("MLE", "MM", "Empirical Quantile", "HPD", "True Interval")) + 
   scale_color_manual(values = c(hex, "black"), labels = c("MLE", "MM", "Empirical Quantile", "HPD", "True Interval")) +
-  ggtitle("Upper bound of 95% intervals when mu=0, sigma=0.5, phi=0.9995 with 1000 burn-in")
+  ggtitle(paste0("Upper bound of 95% intervals when mu=",mu,", sigma=",sd,", phi=",phi," with ",n.burnin," burn-in"))
 
 plot3 <- ggplot(df, aes(x = id, group = Type)) +  # Only lower bound
   geom_line(aes(y = low, col = Type, linetype = Type), lwd=0.75) +
@@ -125,12 +127,12 @@ plot3 <- ggplot(df, aes(x = id, group = Type)) +  # Only lower bound
   ylim(floor(min(df$low)), ceiling(max(df$low))) + 
   scale_linetype_manual(values = c(1, 1, 1, 1, 2), labels = c("MLE", "MM", "Empirical Quantile", "HPD", "True Interval")) + 
   scale_color_manual(values = c(hex, "black"), labels = c("MLE", "MM", "Empirical Quantile", "HPD", "True Interval")) +
-  ggtitle("Lower bound of 95% intervals when mu=0, sigma=0.5, phi=0.9995 with 1000 burn-in")
+  ggtitle(paste0("Lower bound of 95% intervals when mu=",mu,", sigma=",sd,", phi=",phi," with ",n.burnin," burn-in"))
 
 ## Check absolute difference with true CI
 
-n.burnin <- 1000
-end.iter <- niter
+n.burnin <- 10
+end.iter <- 10000
 n.est <- 4
 hex <- hue_pal()(n.est)
 
@@ -151,7 +153,7 @@ plot4 <- ggplot(df, aes(x = id, group = Type)) +  # Plot for lower bound
   ylim(floor(min(abs(df$low))), ceiling(max(abs(df$low)))) + 
   scale_linetype_manual(values = c(1, 1, 1, 1), labels = c("MLE", "MM", "Empirical Quantile", "HPD")) + 
   scale_color_manual(values = hex, labels = c("MLE", "MM", "Empirical Quantile", "HPD")) +
-  ggtitle("Absolute difference from true lower bound when mu=0, sigma=0.5, phi=0.9995 with 1000 burn-in")
+  ggtitle(paste0("Absolute difference from true lower bound when mu=",mu,", sigma=",sd,", phi=",phi," with ",n.burnin," burn-in"))
 
 plot5 <- ggplot(df, aes(x = id, group = Type)) +  # Plot for upper bound
   geom_line(aes(y = abs(upp), col = Type, linetype = Type), lwd=0.75) +
@@ -159,10 +161,10 @@ plot5 <- ggplot(df, aes(x = id, group = Type)) +  # Plot for upper bound
   ylim(floor(min(abs(df$upp))), ceiling(max(abs(df$upp)))) + 
   scale_linetype_manual(values = c(1, 1, 1, 1), labels = c("MLE", "MM", "Empirical Quantile", "HPD")) + 
   scale_color_manual(values = hex, labels = c("MLE", "MM", "Empirical Quantile", "HPD")) +
-  ggtitle("Absolute difference from true upper bound when mu=0, sigma=0.5, phi=0.9995 with 1000 burn-in")
+  ggtitle(paste0("Absolute difference from true upper bound when mu=",mu,", sigma=",sd,", phi=",phi," with ",n.burnin," burn-in"))
 
 plot.list <- ggarrange(plot1, plot2, plot3, plot4, plot5, nrow = 1, ncol = 1)
-ggexport(plot.list, filename = "plot9995.pdf", width = 18, height = 14)
+ggexport(plot.list, filename = "plot6.pdf", width = 18, height = 14)
 
 
 ## ESS
@@ -173,9 +175,10 @@ for(i in 2:niter){
   ess[i] <- ess_bulk(data[1:i,])
 }
 
+## Rhat
 
-
-
+mcmc.obj <- mcmc.list(as.mcmc(data[,1]), as.mcmc(data[,2]), as.mcmc(data[,3]))
+gelman.plot(mcmc.obj)
 
 
 

@@ -407,4 +407,3 @@ hpd_analysis <- function(data, niter=NULL, npar=NULL, nchain=NULL, transf=NULL){
   
   res <- list(low_hpd, upp_hpd, time_hpd)
 }
-

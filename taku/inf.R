@@ -53,7 +53,7 @@ vars.monitor <- c("N", "p", "X")
 #
 # vars.monitor <- c("N", "phi")
 
-for(set in 1:500){
+for(set in 2:3){
   
   set.seed(set)
   
@@ -69,7 +69,7 @@ for(set in 1:500){
                "nstock" = simdata$nstock)
   
   jagsfit <- jags(data=data, n.chains=3, inits=initial.values,
-                  parameters.to.save=vars.monitor, n.iter=10000, n.burnin=0,n.thin=1,
+                  parameters.to.save=vars.monitor, n.iter=30000, n.burnin=0, n.thin=1,
                   DIC=F, model.file=textConnection(ModelCode))
   
   saveRDS(jagsfit$BUGSoutput$sims.array,paste0("res/res",set,".rds"))

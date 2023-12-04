@@ -13,6 +13,9 @@ mu <- 0
 sd <- 0.5 
 initial <- c(-10,0,10)
 
+phi <- 0.4
+nburnin <- NULL
+
 phi <- 0.6
 nburnin <- NULL
 
@@ -86,7 +89,7 @@ true.quantile <-  qnorm(c(0.025, 0.975), mean = mu, sd = true.sd)## True empiric
 # n.burnin <- round(1.3 * nburnin)
 n.burnin <- 10
 # end.iter <- 2500
-end.iter <- 10000
+end.iter <- niter
 par <- 1
 n.est <- 4
 hex <- hue_pal()(n.est)
@@ -131,12 +134,12 @@ plot3 <- ggplot(df, aes(x = id, group = Type)) +  # Only lower bound
 
 ## Check absolute difference with true CI
 
-n.burnin <- 10
-end.iter <- 10000
-n.est <- 4
-hex <- hue_pal()(n.est)
+# n.burnin <- 10
+# end.iter <- niter
+# n.est <- 4
+# hex <- hue_pal()(n.est)
 
-df <- data.frame(id = rep((n.burnin + 1):end.iter, n.est), 
+df.abs <- data.frame(id = rep((n.burnin + 1):end.iter, n.est), 
                  low = c(low_mle[(n.burnin + 1):end.iter, par]-true.quantile[1], 
                          low_mm[(n.burnin + 1):end.iter, par]-true.quantile[1],
                          low_eq[(n.burnin + 1):end.iter, par]-true.quantile[1],
@@ -147,41 +150,104 @@ df <- data.frame(id = rep((n.burnin + 1):end.iter, n.est),
                          upp_hpd[(n.burnin + 1):end.iter, par]-true.quantile[2]),
                  Type = as.factor(rep(1:n.est, each = (end.iter - n.burnin))))
 
-plot4 <- ggplot(df, aes(x = id, group = Type)) +  # Plot for lower bound
+plot4 <- ggplot(df.abs, aes(x = id, group = Type)) +  # Plot for lower bound
   geom_line(aes(y = abs(low), col = Type, linetype = Type), lwd=0.75) +
   labs(x = "Iterations", y = "Absolute difference from true lower bound") +
-  ylim(floor(min(abs(df$low))), ceiling(max(abs(df$low)))) + 
+  ylim(floor(min(abs(df.abs$low))), ceiling(max(abs(df.abs$low)))) + 
   scale_linetype_manual(values = c(1, 1, 1, 1), labels = c("MLE", "MM", "Empirical Quantile", "HPD")) + 
   scale_color_manual(values = hex, labels = c("MLE", "MM", "Empirical Quantile", "HPD")) +
   ggtitle(paste0("Absolute difference from true lower bound when mu=",mu,", sigma=",sd,", phi=",phi," with ",n.burnin," burn-in"))
 
-plot5 <- ggplot(df, aes(x = id, group = Type)) +  # Plot for upper bound
+plot5 <- ggplot(df.abs, aes(x = id, group = Type)) +  # Plot for upper bound
   geom_line(aes(y = abs(upp), col = Type, linetype = Type), lwd=0.75) +
   labs(x = "Iterations", y = "Absolute difference from true upper bound") +
-  ylim(floor(min(abs(df$upp))), ceiling(max(abs(df$upp)))) + 
+  ylim(floor(min(abs(df.abs$upp))), ceiling(max(abs(df.abs$upp)))) + 
   scale_linetype_manual(values = c(1, 1, 1, 1), labels = c("MLE", "MM", "Empirical Quantile", "HPD")) + 
   scale_color_manual(values = hex, labels = c("MLE", "MM", "Empirical Quantile", "HPD")) +
   ggtitle(paste0("Absolute difference from true upper bound when mu=",mu,", sigma=",sd,", phi=",phi," with ",n.burnin," burn-in"))
 
-plot.list <- ggarrange(plot1, plot2, plot3, plot4, plot5, nrow = 1, ncol = 1)
-ggexport(plot.list, filename = "plot6.pdf", width = 18, height = 14)
-
 
 ## ESS
 
-ess <- rep(0, niter)
+ess <- rep(0, niter - n.burnin)
 
-for(i in 2:niter){
-  ess[i] <- ess_bulk(data[1:i,])
+for(i in 1:length(ess)){
+  ess[i] <- ess_bulk(data[1:(n.burnin + i),])
 }
+
+df.ess <- data.frame(ess = rep(ess, n.est), 
+                     low = c(low_mle[(n.burnin + 1):end.iter, par]-true.quantile[1], 
+                             low_mm[(n.burnin + 1):end.iter, par]-true.quantile[1],
+                             low_eq[(n.burnin + 1):end.iter, par]-true.quantile[1],
+                             low_hpd[(n.burnin + 1):end.iter, par]-true.quantile[1]),
+                     upp = c(upp_mle[(n.burnin + 1):end.iter, par]-true.quantile[2], 
+                             upp_mm[(n.burnin + 1):end.iter, par]-true.quantile[2],
+                             upp_eq[(n.burnin + 1):end.iter, par]-true.quantile[2],
+                             upp_hpd[(n.burnin + 1):end.iter, par]-true.quantile[2]),
+                     Type = as.factor(rep(1:n.est, each = (end.iter - n.burnin))))
+  
+  
+plot6 <- ggplot(df.ess, aes(x = ess, group = Type)) +  # Plot for upper bound
+  geom_line(aes(y = abs(upp), col = Type, linetype = Type), lwd=0.75) +
+  labs(x = "ESS", y = "Absolute difference from true upper bound") +
+  ylim(floor(min(abs(df.ess$upp))), ceiling(max(abs(df.ess$upp)))) + 
+  scale_linetype_manual(values = c(1, 1, 1, 1), labels = c("MLE", "MM", "Empirical Quantile", "HPD")) + 
+  scale_color_manual(values = hex, labels = c("MLE", "MM", "Empirical Quantile", "HPD")) +
+  ggtitle(paste0("Absolute difference (upper) vs ESS when mu=",mu,", sigma=",sd,", phi=",phi," with ",n.burnin," burn-in"))
+
+plot7 <- ggplot(df.ess, aes(x = ess, group = Type)) +  # Plot for lower bound
+  geom_line(aes(y = abs(low), col = Type, linetype = Type), lwd=0.75) +
+  labs(x = "ESS", y = "Absolute difference from true lower bound") +
+  ylim(floor(min(abs(df.ess$low))), ceiling(max(abs(df.ess$low)))) + 
+  scale_linetype_manual(values = c(1, 1, 1, 1), labels = c("MLE", "MM", "Empirical Quantile", "HPD")) + 
+  scale_color_manual(values = hex, labels = c("MLE", "MM", "Empirical Quantile", "HPD")) +
+  ggtitle(paste0("Absolute difference (lower) vs ESS when mu=",mu,", sigma=",sd,", phi=",phi," with ",n.burnin," burn-in"))
+
 
 ## Rhat
 
 mcmc.obj <- mcmc.list(as.mcmc(data[,1]), as.mcmc(data[,2]), as.mcmc(data[,3]))
 gelman.plot(mcmc.obj)
 
+rhat <- rep(0, niter - n.burnin)
+for(i in 1:length(rhat)){
+  rhat[i] <- Rhat(data[1:(n.burnin + i),])
+}
+
+df.rhat <- data.frame(rhat = rep(rhat, n.est), 
+                     low = c(low_mle[(n.burnin + 1):end.iter, par]-true.quantile[1], 
+                             low_mm[(n.burnin + 1):end.iter, par]-true.quantile[1],
+                             low_eq[(n.burnin + 1):end.iter, par]-true.quantile[1],
+                             low_hpd[(n.burnin + 1):end.iter, par]-true.quantile[1]),
+                     upp = c(upp_mle[(n.burnin + 1):end.iter, par]-true.quantile[2], 
+                             upp_mm[(n.burnin + 1):end.iter, par]-true.quantile[2],
+                             upp_eq[(n.burnin + 1):end.iter, par]-true.quantile[2],
+                             upp_hpd[(n.burnin + 1):end.iter, par]-true.quantile[2]),
+                     Type = as.factor(rep(1:n.est, each = (end.iter - n.burnin))))
 
 
+plot8 <- ggplot(df.rhat, aes(x = rhat, group = Type)) +  # Plot for upper bound
+  geom_line(aes(y = abs(upp), col = Type, linetype = Type), lwd=0.75) +
+  labs(x = "Rhat", y = "Absolute difference from true upper bound") +
+  scale_x_reverse() +
+  ylim(floor(min(abs(df.rhat$upp))), ceiling(max(abs(df.rhat$upp)))) + 
+  scale_linetype_manual(values = c(1, 1, 1, 1), labels = c("MLE", "MM", "Empirical Quantile", "HPD")) + 
+  scale_color_manual(values = hex, labels = c("MLE", "MM", "Empirical Quantile", "HPD")) +
+  ggtitle(paste0("Absolute difference (upper) vs Rhat when mu=",mu,", sigma=",sd,", phi=",phi," with ",n.burnin," burn-in"))
+
+plot9 <- ggplot(df.rhat, aes(x = rhat, group = Type)) +  # Plot for lower bound
+  geom_line(aes(y = abs(low), col = Type, linetype = Type), lwd=0.75) +
+  labs(x = "Rhat", y = "Absolute difference from true lower bound") +
+  scale_x_reverse() +
+  ylim(floor(min(abs(df.rhat$low))), ceiling(max(abs(df.rhat$low)))) + 
+  scale_linetype_manual(values = c(1, 1, 1, 1), labels = c("MLE", "MM", "Empirical Quantile", "HPD")) + 
+  scale_color_manual(values = hex, labels = c("MLE", "MM", "Empirical Quantile", "HPD")) +
+  ggtitle(paste0("Absolute difference (lower) vs Rhat when mu=",mu,", sigma=",sd,", phi=",phi," with ",n.burnin," burn-in"))
+
+
+
+plot.list <- ggarrange(plot1, plot2, plot3, plot4, plot5, plot6, plot7, plot8, plot9, nrow = 1, ncol = 1)
+ggexport(plot.list, filename = "plot6.pdf", width = 18, height = 14)
 
 
 

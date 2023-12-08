@@ -89,7 +89,7 @@ mm_analysis <- function(data, niter=NULL, npar=NULL, nchain=NULL, transf=NULL){
   }
   
   for(i in 1:niter){
-    tempres <- data[1:i,]  ## Current data which only include first i iterations
+    tempres <- as.matrix(data[1:i,])  ## Current data which only include first i iterations
     meanvec <- sdvec <- lowvec <- uppvec <- rep(0, npar) ## Initialization
     
     if(i==1){ ## If only one iteration, then tempres is a vector
@@ -152,7 +152,7 @@ eq_analysis <- function(data, niter=NULL, npar=NULL, nchain=NULL){
   starttime_eq <- Sys.time() ## Record start time
   
   for(i in 1:niter){
-    tempres <- data[1:i,] ## Current data which only include first i iterations
+    tempres <- as.matrix(data[1:i,]) ## Current data which only include first i iterations
     lowvec <- uppvec <- rep(0, npar) ## Initialization
     
     if(i==1){ ## If only one iteration, then tempres is a vector
@@ -376,7 +376,7 @@ hpd_analysis <- function(data, niter=NULL, npar=NULL, nchain=NULL, transf=NULL){
   }
   
   for(i in 2:niter){
-    tempres <- data[1:i,]  ## Current data which only include first i iterations
+    tempres <- as.matrix(data[1:i,])  ## Current data which only include first i iterations
     lowvec <- uppvec <- rep(0, npar) ## Initialization
     
     for(j in 1:npar){
@@ -406,4 +406,34 @@ hpd_analysis <- function(data, niter=NULL, npar=NULL, nchain=NULL, transf=NULL){
   time_hpd <- endtime_hpd - starttime_hpd ## Calculate computing time
   
   res <- list(low_hpd, upp_hpd, time_hpd)
+}
+
+#' AR(1) Simulation
+#'
+#' @param niter Number of iterations.
+#' @param nchain Number of MCMC chains.
+#' @param mu Mean of Xt.
+#' @param sd Standard deviation of Xt.
+#' @param phi AR(1) model coefficient.
+#' @param initial Initial value of AR(1) process.
+#' @param seed Seed for random sampler.
+#' @return A matrix with simulated data.
+ts_sampler <- function(niter, nchain, mu, sd, phi, initial=NULL, seed = 1234) { ## x_t = delta + phi * x_{t-1} + eps_t
+  set.seed(seed)
+  
+  samples <- matrix(0, nrow = (niter+1), ncol = nchain)
+  ## If no initial value set, the default initial value is 0
+  if(!is.null(initial)){
+    samples[1,] <- initial
+  }
+  
+  ## Simulation
+  delta <- mu * (1 - phi)
+  for(i in 2:(niter+1)){
+    for(j in 1:nchain){
+      samples[i,j] <- delta + phi * samples[(i-1),j] + rnorm(1, 0, sd)
+    }
+  }
+  samples <- samples[-1,]
+  return(samples)
 }

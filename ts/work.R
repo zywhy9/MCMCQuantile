@@ -8,79 +8,55 @@ library(ggpubr)
 ## AR(1) Simulation
 
 niter <- 30000 ## Number of iterations
-nchain <- 3
+nchain <- 1
+npar <- 1
 mu <- 0 
+initial <- 0
+
+phi <- 0.9
 sd <- 0.5 
-initial <- c(-10,0,10)
+nburnin <- NULL
 
 phi <- 0.4
+sd <- sqrt(0.5^2 / (1 - 0.9^2) * (1 - phi^2))
 nburnin <- NULL
 
 phi <- 0.6
+sd <- sqrt(0.5^2 / (1 - 0.9^2) * (1 - phi^2))
 nburnin <- NULL
 
-phi <- 0.9
-nburnin <- NULL
-
-phi <- 0.99
-nburnin <- 40
-
-phi <- 0.995
-nburnin <- 40
-
-phi <- 0.9995
-nburnin <- 700
-
-ts_sampler <- function(niter, nchain, mu, sd, phi, initial=NULL, seed = 1234) { ## x_t = delta + phi * x_{t-1} + eps_t
-  set.seed(seed)
-  
-  samples <- matrix(0, nrow = (niter+1), ncol = nchain)
-  ## If no initial value set, the default initial value is 0
-  if(!is.null(initial)){
-    samples[1,] <- initial
-  }
-  
-  ## Simulation
-  delta <- mu * (1 - phi)
-  for(i in 2:(niter+1)){
-    for(j in 1:nchain){
-      samples[i,j] <- delta + phi * samples[(i-1),j] + rnorm(1, 0, sd)
-    }
-  }
-  samples <- samples[-1,]
-  return(samples)
-}
 
 data <- ts_sampler(niter, nchain, mu, sd, phi, initial)
+if(is.null(dim(data))){ data <- as.matrix(data)}
 
 df <- data.frame(id = rep(1:niter, nchain), x = as.vector(data), chain = as.factor(rep(1:nchain, each = niter)))
-ggplot(data = df, aes(x = id, y = x, group = chain)) +
-  geom_line(aes(color=chain)) +
+ggplot(data = df, aes(x = id, y = x)) +
+  geom_line() +
   xlab("Iterations") +
-  ylab("Sample") +
-  scale_color_discrete(name = "Chain")
+  ylab("Sample")+
+  ggtitle(paste0("Traceplot when mu=",mu,", sigma=",round(sd,4),", phi=",phi))
 
 ## Analysis
 transf <- "no" ## Indicators of transformation
 
 ## moment estimate
-c(mean_mm, sd_mm, low_mm, upp_mm, time_mm) %<-% mm_analysis(data=data, niter=niter, npar=1, nchain=nchain, transf=transf)
+c(mean_mm, sd_mm, low_mm, upp_mm, time_mm) %<-% mm_analysis(data=data, niter=niter, npar=npar, nchain=nchain, transf=transf)
 
 ## Empirical Quantile
-c(low_eq, upp_eq, time_eq) %<-% eq_analysis(data=data, niter=niter, npar=1, nchain=nchain)
+c(low_eq, upp_eq, time_eq) %<-% eq_analysis(data=data, niter=niter, npar=npar, nchain=nchain)
 
 ## Highest posterior density interval
-c(low_hpd, upp_hpd, time_hpd) %<-% hpd_analysis(data=data, niter=niter, npar=1, nchain=nchain, transf=transf)
+c(low_hpd, upp_hpd, time_hpd) %<-% hpd_analysis(data=data, niter=niter, npar=npar, nchain=nchain, transf=transf)
 
 ## MLE
 c(mean_mle, sd_mle, low_mle, upp_mle, time_mle, mu_mle, psi_mle, beta, gamma, delta) %<-% mle_analysis(data=data, 
-                                                                                                       niter=100, 
-                                                                                                       npar=1, 
+                                                                                                       niter=niter, 
+                                                                                                       npar=npar, 
                                                                                                        nchain=nchain, 
                                                                                                        transf=transf, 
                                                                                                        initial = initial,
                                                                                                        extra = T,
-                                                                                                       nburnin = nburnin)
+                                                                                                       nburnin = 5)
 
 ## Plot
 true.sd <- sqrt(sd^2 / (1 - phi^2))
@@ -140,15 +116,15 @@ plot3 <- ggplot(df, aes(x = id, group = Type)) +  # Only lower bound
 # hex <- hue_pal()(n.est)
 
 df.abs <- data.frame(id = rep((n.burnin + 1):end.iter, n.est), 
-                 low = c(low_mle[(n.burnin + 1):end.iter, par]-true.quantile[1], 
-                         low_mm[(n.burnin + 1):end.iter, par]-true.quantile[1],
-                         low_eq[(n.burnin + 1):end.iter, par]-true.quantile[1],
-                         low_hpd[(n.burnin + 1):end.iter, par]-true.quantile[1]),
-                 upp = c(upp_mle[(n.burnin + 1):end.iter, par]-true.quantile[2], 
-                         upp_mm[(n.burnin + 1):end.iter, par]-true.quantile[2],
-                         upp_eq[(n.burnin + 1):end.iter, par]-true.quantile[2],
-                         upp_hpd[(n.burnin + 1):end.iter, par]-true.quantile[2]),
-                 Type = as.factor(rep(1:n.est, each = (end.iter - n.burnin))))
+                     low = c(low_mle[(n.burnin + 1):end.iter, par]-true.quantile[1], 
+                             low_mm[(n.burnin + 1):end.iter, par]-true.quantile[1],
+                             low_eq[(n.burnin + 1):end.iter, par]-true.quantile[1],
+                             low_hpd[(n.burnin + 1):end.iter, par]-true.quantile[1]),
+                     upp = c(upp_mle[(n.burnin + 1):end.iter, par]-true.quantile[2], 
+                             upp_mm[(n.burnin + 1):end.iter, par]-true.quantile[2],
+                             upp_eq[(n.burnin + 1):end.iter, par]-true.quantile[2],
+                             upp_hpd[(n.burnin + 1):end.iter, par]-true.quantile[2]),
+                     Type = as.factor(rep(1:n.est, each = (end.iter - n.burnin))))
 
 plot4 <- ggplot(df.abs, aes(x = id, group = Type)) +  # Plot for lower bound
   geom_line(aes(y = abs(low), col = Type, linetype = Type), lwd=0.75) +
@@ -185,8 +161,8 @@ df.ess <- data.frame(ess = rep(ess, n.est),
                              upp_eq[(n.burnin + 1):end.iter, par]-true.quantile[2],
                              upp_hpd[(n.burnin + 1):end.iter, par]-true.quantile[2]),
                      Type = as.factor(rep(1:n.est, each = (end.iter - n.burnin))))
-  
-  
+
+
 plot6 <- ggplot(df.ess, aes(x = ess, group = Type)) +  # Plot for upper bound
   geom_line(aes(y = abs(upp), col = Type, linetype = Type), lwd=0.75) +
   labs(x = "ESS", y = "Absolute difference from true upper bound") +
@@ -215,15 +191,15 @@ for(i in 1:length(rhat)){
 }
 
 df.rhat <- data.frame(rhat = rep(rhat, n.est), 
-                     low = c(low_mle[(n.burnin + 1):end.iter, par]-true.quantile[1], 
-                             low_mm[(n.burnin + 1):end.iter, par]-true.quantile[1],
-                             low_eq[(n.burnin + 1):end.iter, par]-true.quantile[1],
-                             low_hpd[(n.burnin + 1):end.iter, par]-true.quantile[1]),
-                     upp = c(upp_mle[(n.burnin + 1):end.iter, par]-true.quantile[2], 
-                             upp_mm[(n.burnin + 1):end.iter, par]-true.quantile[2],
-                             upp_eq[(n.burnin + 1):end.iter, par]-true.quantile[2],
-                             upp_hpd[(n.burnin + 1):end.iter, par]-true.quantile[2]),
-                     Type = as.factor(rep(1:n.est, each = (end.iter - n.burnin))))
+                      low = c(low_mle[(n.burnin + 1):end.iter, par]-true.quantile[1], 
+                              low_mm[(n.burnin + 1):end.iter, par]-true.quantile[1],
+                              low_eq[(n.burnin + 1):end.iter, par]-true.quantile[1],
+                              low_hpd[(n.burnin + 1):end.iter, par]-true.quantile[1]),
+                      upp = c(upp_mle[(n.burnin + 1):end.iter, par]-true.quantile[2], 
+                              upp_mm[(n.burnin + 1):end.iter, par]-true.quantile[2],
+                              upp_eq[(n.burnin + 1):end.iter, par]-true.quantile[2],
+                              upp_hpd[(n.burnin + 1):end.iter, par]-true.quantile[2]),
+                      Type = as.factor(rep(1:n.est, each = (end.iter - n.burnin))))
 
 
 plot8 <- ggplot(df.rhat, aes(x = rhat, group = Type)) +  # Plot for upper bound

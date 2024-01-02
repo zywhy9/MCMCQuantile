@@ -174,7 +174,7 @@ for(i in 1:length(phi)){
     ylim(0, 0.7) +
     scale_linetype_manual(values = c(1, 1, 1), labels = c("MLE", "MM", "Empirical Quantile")) + 
     scale_color_manual(values = hex, labels = c("MLE", "MM", "Empirical Quantile")) +
-    ggtitle(paste0("Varaince of lower bound when phi=", phi[i])) +
+    ggtitle(paste0("Variance of lower bound when phi=", phi[i])) +
     theme(legend.position = "none")
   
   plot2 <- ggplot(df.var, aes(x = id, group = Type)) +
@@ -183,7 +183,7 @@ for(i in 1:length(phi)){
     ylim(0, 2.5) +
     scale_linetype_manual(values = c(1, 1, 1), labels = c("MLE", "MM", "Empirical Quantile")) + 
     scale_color_manual(values = hex, labels = c("MLE", "MM", "Empirical Quantile")) +
-    ggtitle(paste0("Varaince of upper bound when phi=", phi[i])) +
+    ggtitle(paste0("Variance of upper bound when phi=", phi[i])) +
     theme(legend.position = "none")
   
   plotnames <- paste0("plot",1:2,phi[i]*10)

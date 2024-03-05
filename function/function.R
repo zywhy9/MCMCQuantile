@@ -68,31 +68,42 @@ mcmc_data <- function(data=NULL, niter=NULL, set=1, location="res", param.name=N
 #' @param npar Number of parameters.
 #' @param nchain Number of MCMC chains.
 #' @param transf A vector indicates transformation if needed.
+#' @param short An indicator specifying if need shorter sequence under log10 scale.
 #' @return A list including mean, SD, lower and upper bound of 95% CI, computing time.
-mm_analysis <- function(data, niter=NULL, npar=NULL, nchain=NULL, transf=NULL){
+mm_analysis <- function(data, niter=NULL, npar=NULL, nchain=NULL, transf=NULL, short=FALSE){
   
-  pb <- progress_bar$new(format = "[:bar] :current/:total (:percent)", total = niter) ## Set up prograss bar
+  if(short){
+    actual_iter <- unique(round(10^seq(0,log10(niter),length.out=100)))
+  }else{
+    actual_iter <- 1:niter
+  }
+  actual_niter <- length(actual_iter)
   
-  mean_mm <- sd_mm <- low_mm <- upp_mm <- matrix(0, niter, npar) ## Initialization
+  pb <- progress_bar$new(format = "[:bar] :current/:total (:percent)", total = actual_niter) ## Set up prograss bar
+  
+  mean_mm <- sd_mm <- low_mm <- upp_mm <- matrix(0, actual_niter, npar) ## Initialization
   
   starttime_mm <- Sys.time()  ## Set up start time
   
   ## Transformation based on type of data
   for(i in 1:npar){
     if(transf[i]=="log"){
-      data[,(1:nchain)+((i-1)*nchain)] <- log(data[,(1:nchain)+((i-1)*nchain)]) ## Log transformation
+      data[actual_iter,(1:nchain)+((i-1)*nchain)] <- 
+        log(data[actual_iter,(1:nchain)+((i-1)*nchain)]) ## Log transformation
     }else if(transf[i]=="logit"){
-      data[,(1:nchain)+((i-1)*nchain)] <- boot::logit(data[,(1:nchain)+((i-1)*nchain)])  ## Logit transformation
+      data[actual_iter,(1:nchain)+((i-1)*nchain)] <- 
+        boot::logit(data[actual_iter,(1:nchain)+((i-1)*nchain)])  ## Logit transformation
     }else{
       next ## No transformation
     }
   }
   
-  for(i in 1:niter){
-    tempres <- as.matrix(data[1:i,])  ## Current data which only include first i iterations
+  for(i in 1:actual_niter){
+    iter <- actual_iter[i]
+    tempres <- as.matrix(data[1:iter,])  ## Current data which only include first i iterations
     meanvec <- sdvec <- lowvec <- uppvec <- rep(0, npar) ## Initialization
     
-    if(i==1){ ## If only one iteration, then tempres is a vector
+    if(iter==1){ ## If only one iteration, then tempres is a vector
       for(j in 1:npar){
         meanvec[j] <- mean(tempres[(1:nchain)+((j-1)*nchain)])
         sdvec[j] <- sd(tempres[(1:nchain)+((j-1)*nchain)])
@@ -134,6 +145,11 @@ mm_analysis <- function(data, niter=NULL, npar=NULL, nchain=NULL, transf=NULL){
   time_mm <- endtime_mm - starttime_mm ## Calculate computing time
   
   res <- list(mean_mm, sd_mm, low_mm, upp_mm, time_mm)
+  if(short){
+    res$actual_iter <- actual_iter
+  }
+  
+  return(res)
 }
 
 #' Analysis with Empirical Quantiles
@@ -142,20 +158,29 @@ mm_analysis <- function(data, niter=NULL, npar=NULL, nchain=NULL, transf=NULL){
 #' @param niter Number of iterations.
 #' @param npar Number of parameters.
 #' @param nchain Number of MCMC chains.
+#' @param short An indicator specifying if need shorter sequence under log10 scale.
 #' @return A list including 2.5% quantile and 97.5% quantile, computing time.
-eq_analysis <- function(data, niter=NULL, npar=NULL, nchain=NULL){
+eq_analysis <- function(data, niter=NULL, npar=NULL, nchain=NULL, short=FALSE){
   
-  pb <- progress_bar$new(format = "[:bar] :current/:total (:percent)", total = niter) ## Set up progress bar
+  if(short){
+    actual_iter <- unique(round(10^seq(0,log10(niter),length.out=100)))
+  }else{
+    actual_iter <- 1:niter
+  }
+  actual_niter <- length(actual_iter)
   
-  low_eq <- upp_eq <- matrix(0, niter, npar) ## Initialization
+  pb <- progress_bar$new(format = "[:bar] :current/:total (:percent)", total = actual_niter) ## Set up progress bar
+  
+  low_eq <- upp_eq <- matrix(0, actual_niter, npar) ## Initialization
   
   starttime_eq <- Sys.time() ## Record start time
   
-  for(i in 1:niter){
-    tempres <- as.matrix(data[1:i,]) ## Current data which only include first i iterations
+  for(i in 1:actual_niter){
+    iter <- actual_iter[i]
+    tempres <- as.matrix(data[1:iter,]) ## Current data which only include first i iterations
     lowvec <- uppvec <- rep(0, npar) ## Initialization
     
-    if(i==1){ ## If only one iteration, then tempres is a vector
+    if(iter==1){ ## If only one iteration, then tempres is a vector
       for(j in 1:npar){
         lowvec[j] <- quantile(tempres[(1:nchain)+((j-1)*nchain)], 0.025)
         uppvec[j] <- quantile(tempres[(1:nchain)+((j-1)*nchain)], 0.975)
@@ -175,7 +200,13 @@ eq_analysis <- function(data, niter=NULL, npar=NULL, nchain=NULL){
   endtime_eq <- Sys.time() ## Record end time
   time_eq <- endtime_eq - starttime_eq ## Calculate computing time
   
+  
   res <- list(low_eq, upp_eq, time_eq)
+  if(short){
+    res$actual_iter <- actual_iter
+  }
+  
+  return(res)
 }
 
 
@@ -189,23 +220,33 @@ eq_analysis <- function(data, niter=NULL, npar=NULL, nchain=NULL){
 #' @param initial Optional; Initial values, if NULL then all 0.
 #' @param extra If TRUE, then also return mu, psi, beta, gamma, delta.
 #' @param nburnin Optional; number of burn-in.
+#' @param short An indicator specifying if need shorter sequence under log10 scale.
 #' @return A list includes mean vector and vairance-covariance matrix.
-mle_analysis <- function(data, niter=NULL, npar=NULL, nchain=NULL, transf=NULL, initial=NULL, extra=FALSE, nburnin=NULL){
-  
-  mean_mle <- sd_mle <- low_mle <- upp_mle <- matrix(0, niter, npar) ## Initialization
+mle_analysis <- function(data, niter=NULL, npar=NULL, nchain=NULL, transf=NULL, initial=NULL, extra=FALSE, nburnin=NULL, short=FALSE){
   
   ## Set initial values
   ninit <- ifelse(is.null(nburnin), npar, nburnin)
   
-  pb <- progress_bar$new(format = "[:bar] :current/:total (:percent)", total = niter-ninit) ## Set progress bar
+  if(short){
+    actual_iter <- unique(round(10^seq(0,log10(niter),length.out=200)))
+  }else{
+    actual_iter <- 1:niter
+  }
+  actual_iter <- actual_iter[which(actual_iter>ninit)]
+  actual_niter <- length(actual_iter)
+  
+  mean_mle <- sd_mle <- low_mle <- upp_mle <- matrix(0, actual_niter, npar) ## Initialization
+  
+  
+  pb <- progress_bar$new(format = "[:bar] :current/:total (:percent)", total = actual_niter) ## Set progress bar
   starttime_mle <- Sys.time()  ## Set start time
   
   ## Transformation based on type of data
   for(i in 1:npar){
     if(transf[i]=="log"){
-      data[,(1:nchain)+((i-1)*nchain)] <- log(data[,(1:nchain)+((i-1)*nchain)]) ## Log transformation
+      data[actual_iter,(1:nchain)+((i-1)*nchain)] <- log(data[actual_iter,(1:nchain)+((i-1)*nchain)]) ## Log transformation
     }else if(transf[i]=="logit"){
-      data[,(1:nchain)+((i-1)*nchain)] <- boot::logit(data[,(1:nchain)+((i-1)*nchain)])  ## Logit transformation
+      data[actual_iter,(1:nchain)+((i-1)*nchain)] <- boot::logit(data[actual_iter,(1:nchain)+((i-1)*nchain)])  ## Logit transformation
     }else{
       next ## No transformation
     }
@@ -219,13 +260,14 @@ mle_analysis <- function(data, niter=NULL, npar=NULL, nchain=NULL, transf=NULL, 
   
   
   ## Start iteration
-  for(iter in (ninit+1):niter){
+  for(i in 1:actual_niter){
+    iter <- actual_iter[i]
     
     temp00 <- c() ## Initialization
     temp01 <- c() ## Initialization
-    for(i in 1:npar){
-      temp00 <- cbind(temp00, as.vector(temp[1:(iter-1),(1:nchain)+((i-1)*nchain)]))
-      temp01 <- cbind(temp01, as.vector(temp[2:iter,(1:nchain)+((i-1)*nchain)]))
+    for(j in 1:npar){
+      temp00 <- cbind(temp00, as.vector(temp[1:(iter-1),(1:nchain)+((j-1)*nchain)]))
+      temp01 <- cbind(temp01, as.vector(temp[2:iter,(1:nchain)+((j-1)*nchain)]))
     }
     X0bar <- colMeans(temp00)
     X1bar <- colMeans(temp01)
@@ -258,10 +300,14 @@ mle_analysis <- function(data, niter=NULL, npar=NULL, nchain=NULL, transf=NULL, 
     
     ## If variance is negative, print the corresponding iteration number
     if(sum(diag(psi_mle)<0)>0){
-      print(iter)
-      print(psi_mle)
-      break
-      return()
+      for(j in 1:npar){
+        mean_mle[i,j] <- NA
+        sd_mle[i,j] <- NA
+        low_mle[i,j] <- NA
+        upp_mle[i,j] <- NA
+      }
+      pb$tick(1) ## Progress bar
+      next
     }
     
     sigma_mle <- sqrt(diag(psi_mle))
@@ -269,32 +315,46 @@ mle_analysis <- function(data, niter=NULL, npar=NULL, nchain=NULL, transf=NULL, 
     ## Transform back to original scale
     for(j in 1:npar){
       if(transf[j]=="log"){
-        mean_mle[iter,j] <- exp(mu_mle[j])
-        sd_mle[iter,j] <- sigma_mle[j] * mean_mle[iter,j]
-        low_mle[iter,j] <- exp(mu_mle[j] - qnorm(0.975) * sigma_mle[j])
-        upp_mle[iter,j] <- exp(mu_mle[j] + qnorm(0.975) * sigma_mle[j])
+        mean_mle[i,j] <- exp(mu_mle[j])
+        sd_mle[i,j] <- sigma_mle[j] * mean_mle[i,j]
+        low_mle[i,j] <- exp(mu_mle[j] - qnorm(0.975) * sigma_mle[j])
+        upp_mle[i,j] <- exp(mu_mle[j] + qnorm(0.975) * sigma_mle[j])
       }else if(transf[j]=="logit"){
-        mean_mle[iter,j] <- boot::inv.logit(mu_mle[j])
-        sd_mle[iter,j] <- sigma_mle[j] * mean_mle[iter,j] * (1 - mean_mle[iter,j])
-        low_mle[iter,j] <- boot::inv.logit(mu_mle[j] - qnorm(0.975) * sigma_mle[j])
-        upp_mle[iter,j] <- boot::inv.logit(mu_mle[j] + qnorm(0.975) * sigma_mle[j])
+        mean_mle[i,j] <- boot::inv.logit(mu_mle[j])
+        sd_mle[i,j] <- sigma_mle[j] * mean_mle[i,j] * (1 - mean_mle[i,j])
+        low_mle[i,j] <- boot::inv.logit(mu_mle[j] - qnorm(0.975) * sigma_mle[j])
+        upp_mle[i,j] <- boot::inv.logit(mu_mle[j] + qnorm(0.975) * sigma_mle[j])
       }else{
-        mean_mle[iter,j] <- mu_mle[j]
-        sd_mle[iter,j] <- sigma_mle[j]
-        low_mle[iter,j] <- mu_mle[j] - qnorm(0.975) * sigma_mle[j]
-        upp_mle[iter,j] <- mu_mle[j] + qnorm(0.975) * sigma_mle[j]
+        mean_mle[i,j] <- mu_mle[j]
+        sd_mle[i,j] <- sigma_mle[j]
+        low_mle[i,j] <- mu_mle[j] - qnorm(0.975) * sigma_mle[j]
+        upp_mle[i,j] <- mu_mle[j] + qnorm(0.975) * sigma_mle[j]
       }
     }
     pb$tick(1) ## Progress bar
   }
   
+  if(!short){
+    mean_mle <- rbind(matrix(rep(0, ninit),ncol=1), mean_mle)
+    sd_mle <- rbind(matrix(rep(0, ninit),ncol=1), sd_mle)
+    low_mle <- rbind(matrix(rep(0, ninit),ncol=1), low_mle)
+    upp_mle <- rbind(matrix(rep(0, ninit),ncol=1), upp_mle)
+  }
+  
   endtime_mle <- Sys.time() ## Record end time
   time_mle <- endtime_mle - starttime_mle ## Calculate computing time
-
+  
+  res <- list(mean_mle, sd_mle, low_mle, upp_mle, time_mle)
+  
   if(extra){
-    res <- list(mean_mle, sd_mle, low_mle, upp_mle, time_mle, mu_mle, psi_mle, beta, gamma, delta)
-  }else{
-    res <- list(mean_mle, sd_mle, low_mle, upp_mle, time_mle)
+    res$mu_mle <- mu_mle
+    res$psi_mle <- psi_mle
+    res$beta <- beta
+    res$gamma <- gamma 
+    res$delta <- delta
+  }
+  if(short){
+    res$actual_iter <- actual_iter
   }
   
   return(res)

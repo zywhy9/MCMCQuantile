@@ -5,60 +5,22 @@ library(Matrix)
 library(rstan)
 library(ggpubr)
 
-## AR(1) Simulation
-
-niter <- 30000 ## Number of iterations
-nchain <- 1
-npar <- 1
-mu <- 0 
-initial <- 0
-
-phi <- 0.9
-sd <- 0.5 
-nburnin <- NULL
-# 
-# phi <- 0.4
-# sd <- sqrt(0.5^2 / (1 - 0.9^2) * (1 - phi^2))
-# nburnin <- NULL
-# 
-# phi <- 0.6
-# sd <- sqrt(0.5^2 / (1 - 0.9^2) * (1 - phi^2))
-# nburnin <- NULL
-
-
-data <- ts_sampler(niter, nchain, mu, sd, phi, initial)
-if(is.null(dim(data))){ data <- as.matrix(data)}
-
-## Analysis
-transf <- "no" ## Indicators of transformation
-
-## moment estimate
-c(mean_mm, sd_mm, low_mm, upp_mm, time_mm) %<-% mm_analysis(data=data, niter=niter, npar=npar, nchain=nchain, transf=transf)
 
 ## autocorrelation
+phi <- 0.9
+sd <- 0.5 
 true_sd <- sqrt(0.5^2 / (1 - 0.9^2)) ## SD of stationary distribution
 true_4rm <- 3 * true_sd^4 ## Fourth moment of stationary distribution
 varx <- true_sd^2 ## Variance of stationary distribution 
-varx2 <- true_4rm - varx ## Variance of X^2
-
-temp11 <- 0
-for(i in 1:29999){
-  temp11 <- temp11 + phi^i * varx
-}
-Sigma11 <- varx + 2 * temp11
-
-temp22 <- 0
-for(i in 1:29999){
-  temp22 <- temp22 + phi^(2*i) * varx2
-}
-Sigma22 <- varx2 + 2 * temp22
-
+varx2 <- true_4rm - varx
+Sigma11 <- varx * (1+phi)/(1-phi)
+Sigma22 <- varx2 * (1+phi^2)/(1-phi^2)
 Final_var <- Sigma11 + qnorm(0.975)^2/(4 * varx) * Sigma22
 
 
 ## Simulation
-nsim <- 30000 ## Number of iterations
-nset <- 1000 ## Number of simulated sets
+nsim <- 5000 ## Number of iterations
+nset <- 100 ## Number of simulated sets
 simest <- matrix(0, ncol = nset, nrow = nsim - 1)
 for(set in 1:nset){
   temp <- readRDS(paste0("CLT/res",set,".rds")) ## Read Data
@@ -110,3 +72,30 @@ plot <- ggplot(df.var, aes(x = id, group = Type)) +  # Plot for lower bound
   scale_color_manual(values = hex, labels = c("Theoretical", "Simulated")) +
   ggtitle(paste0("Iterations vs Variance of method of moments estimator")) 
 plot
+
+## Batch Means Estimator
+phi <- 0.9
+sd <- sqrt(0.5^2 / (1 - 0.9^2) * (1 - phi^2))
+nsim <- 5000
+nburnin <- 5000
+data <- ts_sampler(niter=nsim+nburnin, nchain=1, mu=0, sd=sd, phi=phi, seed=1234)
+data <- rbind(data,data^2)[,(nburnin+1):(nsim+nburnin)]
+
+b <- 20
+m <- nsim/b
+
+muk <- matrix(0, nrow=2, ncol=m)
+for(i in 1:m){
+  for(j in 1:2){
+    muk[j,i] <- mean(data[j,c(1:b)+(i-1)*b])
+  }
+}
+
+mun <- apply(data, 1, mean)
+
+temp <- 0
+for(i in 1:m){
+  temp <- temp + (muk[,i]-mun) %*% t(muk[,i]-mun)
+}
+Sigma <- b / (m-1) * temp
+Sigma

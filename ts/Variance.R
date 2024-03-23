@@ -26,9 +26,9 @@ df <- data.frame(id = rep((nburnin + 1):nsim, 3),
                  Type = as.factor(rep(1:3, each = (nsim - nburnin))))
 
 plot <- ggplot(df, aes(x = id, group = Type)) +  # Plot for upper bound
-  geom_line(aes(y = var, col = Type, linetype = Type), lwd=0.75) +
-  labs(x = "Iterations", y = "Variance") +
+  geom_line(aes(y = log(var), col = Type, linetype = Type), lwd=0.75) +
+  labs(x = "Iterations", y = "log(Variance)") +
   scale_linetype_manual(values = rep(1, 3), labels = c("MM", "MLE", "EQ")) + 
   scale_color_manual(values = hex, labels = c("MM", "MLE", "EQ")) +
-  ggtitle(paste0("Iterations vs Variance of estimates across 100 datasets")) 
+  ggtitle(paste0("Iterations vs log(Variance) of estimates across 100 datasets")) 
 plot
